@@ -1,5 +1,5 @@
 import connectDB from '@/lib/mongodb';
-import User from '@/lib/User';
+import mongoose from 'mongoose';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -7,7 +7,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Verificar autenticación (simple)
     const token = req.headers.authorization?.split(' ')[1];
     if (token !== 'admin_token') {
       return res.status(401).json({ error: 'No autorizado' });
@@ -15,11 +14,9 @@ export default async function handler(req, res) {
 
     await connectDB();
 
-    // Obtener todos los usuarios
-    const users = await User.find({})
-      .select('-password')
-      .sort({ createdAt: -1 })
-      .lean();
+    // Obtener usuarios directamente de MongoDB sin modelo
+    const db = mongoose.connection.db;
+    const users = await db.collection('users').find({}).toArray();
 
     // Calcular estadísticas
     const stats = {
@@ -29,12 +26,18 @@ export default async function handler(req, res) {
         basico: users.filter(u => u.plan === 'basico').length,
         premium: users.filter(u => u.plan === 'premium').length,
       },
-      usosPromedioHoy: (users.reduce((sum, u) => sum + (20 - u.usosHoyRestantes), 0) / users.length).toFixed(2),
+      usosPromedioHoy: users.length > 0 ? (users.reduce((sum, u) => sum + (20 - (u.usosHoyRestantes || 0)), 0) / users.length).toFixed(2) : 0,
     };
 
     return res.status(200).json({
       success: true,
-      users,
+      users: users.map(u => ({
+        _id: u._id,
+        email: u.email,
+        plan: u.plan || 'basico',
+        usosHoyRestantes: u.usosHoyRestantes || 20,
+        createdAt: u.createdAt,
+      })),
       stats,
     });
   } catch (error) {
