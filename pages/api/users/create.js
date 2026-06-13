@@ -13,17 +13,20 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'No autorizado' });
     }
 
-    const { email, plan, paymentStatus } = req.body;
+    const { email, password, plan, paymentStatus } = req.body;
 
     if (!email) {
       return res.status(400).json({ error: 'Email es requerido' });
     }
 
+    if (!password) {
+      return res.status(400).json({ error: 'Contraseña es requerida' });
+    }
+
     await connectDB();
 
-    // Generar contraseña aleatoria
-    const tempPassword = Math.random().toString(36).substring(2, 10);
-    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+    // Hashear la contraseña proporcionada por el admin
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     // Crear usuario en MongoDB
     const db = mongoose.connection.db;
@@ -50,7 +53,6 @@ export default async function handler(req, res) {
     return res.status(201).json({
       success: true,
       message: 'Usuario creado correctamente',
-      tempPassword: tempPassword,
       user: {
         _id: result.insertedId,
         email: newUser.email,

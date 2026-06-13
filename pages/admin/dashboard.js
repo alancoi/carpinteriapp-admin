@@ -16,7 +16,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [newUser, setNewUser] = useState({ email: '', plan: 'basico', paymentStatus: 'pendiente' });
+  const [newUser, setNewUser] = useState({ email: '', password: '', plan: 'basico', paymentStatus: 'pendiente' });
 
   useEffect(() => {
     const token = localStorage.getItem('admin_token');
@@ -57,7 +57,7 @@ export default function Dashboard() {
       
       if (res.ok) {
         setShowModal(false);
-        setNewUser({ email: '', plan: 'basico', paymentStatus: 'pendiente' });
+        setNewUser({ email: '', password: '', plan: 'basico', paymentStatus: 'pendiente' });
         fetchUsers();
         alert('✅ Usuario agregado correctamente');
       } else {
@@ -242,6 +242,27 @@ export default function Dashboard() {
                   value={newUser.email}
                   onChange={(e) => setNewUser({...newUser, email: e.target.value})}
                   placeholder="usuario@example.com"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: `2px solid ${BRAND_COLORS.primary}`,
+                    borderRadius: '5px',
+                    fontSize: '16px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#333' }}>
+                  Contraseña
+                </label>
+                <input
+                  type="password"
+                  value={newUser.password}
+                  onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                  placeholder="Ingresa una contraseña"
                   required
                   style={{
                     width: '100%',
