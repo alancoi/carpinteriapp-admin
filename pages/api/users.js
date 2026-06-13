@@ -36,6 +36,7 @@ export default async function handler(req, res) {
         email: u.email,
         plan: u.plan || 'basico',
         usosHoyRestantes: u.usosHoyRestantes || 20,
+        paymentStatus: u.paymentStatus || 'pendiente',
         createdAt: u.createdAt,
       })),
       stats,
