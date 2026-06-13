@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import * as XLSX from 'xlsx';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -43,18 +42,24 @@ export default function Dashboard() {
     return matchFiltro && matchPlan;
   });
 
-  const exportarExcel = () => {
-    const data = usuariosFiltrados.map(u => ({
-      Email: u.email,
-      Plan: u.plan,
-      'Usos Hoy': 20 - u.usosHoyRestantes,
-      'Registrado': new Date(u.createdAt).toLocaleDateString('es-AR'),
-    }));
+  const exportarExcel = async () => {
+    try {
+      const XLSX = await import('xlsx');
+      const data = usuariosFiltrados.map(u => ({
+        Email: u.email,
+        Plan: u.plan,
+        'Usos Hoy': 20 - u.usosHoyRestantes,
+        'Registrado': new Date(u.createdAt).toLocaleDateString('es-AR'),
+      }));
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Clientes');
-    XLSX.writeFile(wb, 'carpinteriapp-clientes.xlsx');
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Clientes');
+      XLSX.writeFile(wb, 'carpinteriapp-clientes.xlsx');
+    } catch (error) {
+      console.error('Error exportando Excel:', error);
+      alert('Error al exportar Excel');
+    }
   };
 
   const handleLogout = () => {
