@@ -1,5 +1,9 @@
-import connectDB from '@/lib/mongodb';
-import mongoose from 'mongoose';
+import { createClient } from '@supabase/supabase-js';
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -12,32 +16,42 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'No autorizado' });
     }
 
-    await connectDB();
+    // Obtener usuarios de Supabase
+    const { data: users, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-    // Obtener usuarios directamente de MongoDB sin modelo
-    const db = mongoose.connection.db;
-    const users = await db.collection('users').find({}).toArray();
+    if (fetchError) {
+      console.error('Error obteniendo usuarios:', fetchError);
+      return res.status(500).json({
+        error: 'Error al obtener usuarios',
+        details: fetchError.message,
+      });
+    }
+
+    const usersList = users || [];
 
     // Calcular estadísticas
     const stats = {
-      totalUsuarios: users.length,
-      usuariosActivos: users.filter(u => new Date(u.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length,
+      totalUsuarios: usersList.length,
+      usuariosActivos: usersList.filter(u => new Date(u.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length,
       planesActivos: {
-        basico: users.filter(u => u.plan === 'basico').length,
-        premium: users.filter(u => u.plan === 'premium').length,
+        basico: usersList.filter(u => u.plan === 'basico').length,
+        premium: usersList.filter(u => u.plan === 'premium').length,
       },
-      usosPromedioHoy: users.length > 0 ? (users.reduce((sum, u) => sum + (20 - (u.usosHoyRestantes || 0)), 0) / users.length).toFixed(2) : 0,
+      usosPromedioHoy: usersList.length > 0 ? (usersList.reduce((sum, u) => sum + (20 - (u.usos_hoy_restantes || 0)), 0) / usersList.length).toFixed(2) : 0,
     };
 
     return res.status(200).json({
       success: true,
-      users: users.map(u => ({
-        _id: u._id,
+      users: usersList.map(u => ({
+        id: u.id,
         email: u.email,
         plan: u.plan || 'basico',
-        usosHoyRestantes: u.usosHoyRestantes || 20,
-        paymentStatus: u.paymentStatus || 'pendiente',
-        createdAt: u.createdAt,
+        usosHoyRestantes: u.usos_hoy_restantes || 20,
+        paymentStatus: u.payment_status || 'pendiente',
+        createdAt: u.created_at,
       })),
       stats,
     });

@@ -1,6 +1,10 @@
-import connectDB from '@/lib/mongodb';
-import mongoose from 'mongoose';
+import { createClient } from '@supabase/supabase-js';
 import bcryptjs from 'bcryptjs';
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -27,14 +31,13 @@ export default async function handler(req, res) {
 
     console.log('📝 Intentando crear usuario:', email);
 
-    // Conectar a DB
-    await connectDB();
-    console.log('✅ Conectado a MongoDB');
-
-    const db = mongoose.connection.db;
-    
     // Verificar si existe
-    const exists = await db.collection('users').findOne({ email: email.trim().toLowerCase() });
+    const { data: exists } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email.trim().toLowerCase())
+      .single();
+
     if (exists) {
       return res.status(400).json({ error: 'El usuario ya existe' });
     }
@@ -45,36 +48,49 @@ export default async function handler(req, res) {
     console.log('✅ Contraseña hasheada');
 
     // Crear usuario
+    const now = new Date().toISOString();
     const newUser = {
       email: email.trim().toLowerCase(),
-      password: hashedPassword,
+      password_hash: hashedPassword,
       plan: plan || 'basico',
-      paymentStatus: paymentStatus || 'pendiente',
-      usosHoyRestantes: 20,
-      ultimoResetUsos: new Date(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      payment_status: paymentStatus || 'pendiente',
+      usos_hoy_restantes: 20,
+      ultimo_reset_usos: now,
+      created_at: now,
+      updated_at: now,
     };
 
-    console.log('💾 Insertando usuario en MongoDB...');
-    const result = await db.collection('users').insertOne(newUser);
-    console.log('✅ Usuario creado con ID:', result.insertedId);
+    console.log('💾 Insertando usuario en Supabase...');
+    const { data: createdUser, error: insertError } = await supabase
+      .from('users')
+      .insert([newUser])
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('❌ Error insertando:', insertError);
+      return res.status(500).json({
+        error: 'Error al crear usuario',
+        details: insertError.message,
+      });
+    }
+
+    console.log('✅ Usuario creado con ID:', createdUser.id);
 
     return res.status(201).json({
       success: true,
       message: 'Usuario creado correctamente',
       user: {
-        _id: result.insertedId,
-        email: newUser.email,
-        plan: newUser.plan,
-        paymentStatus: newUser.paymentStatus,
+        id: createdUser.id,
+        email: createdUser.email,
+        plan: createdUser.plan,
+        paymentStatus: createdUser.payment_status,
       },
     });
-
   } catch (error) {
     console.error('❌ ERROR:', error);
     console.error('Stack:', error.stack);
-    
+
     return res.status(500).json({
       error: 'Error al crear usuario',
       details: error.message,
@@ -82,4 +98,3 @@ export default async function handler(req, res) {
     });
   }
 }
-
