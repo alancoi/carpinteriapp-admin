@@ -1,6 +1,6 @@
 import connectDB from '@/lib/mongodb';
 import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
+import bcryptjs from 'bcryptjs';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -8,37 +8,45 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Validar token
     const token = req.headers.authorization?.split(' ')[1];
     if (token !== 'authenticated') {
       return res.status(401).json({ error: 'No autorizado' });
     }
 
-    const { email, password, plan, paymentStatus } = req.body;
+    // Validar datos
+    const { email, password, plan = 'basico', paymentStatus = 'pendiente' } = req.body;
 
-    if (!email) {
+    if (!email || !email.trim()) {
       return res.status(400).json({ error: 'Email es requerido' });
     }
 
-    if (!password) {
+    if (!password || !password.trim()) {
       return res.status(400).json({ error: 'Contraseña es requerida' });
     }
 
+    console.log('📝 Intentando crear usuario:', email);
+
+    // Conectar a DB
     await connectDB();
+    console.log('✅ Conectado a MongoDB');
 
-    // Hashear la contraseña proporcionada por el admin
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Crear usuario en MongoDB
     const db = mongoose.connection.db;
     
-    // Verificar si ya existe
-    const exists = await db.collection('users').findOne({ email });
+    // Verificar si existe
+    const exists = await db.collection('users').findOne({ email: email.trim().toLowerCase() });
     if (exists) {
       return res.status(400).json({ error: 'El usuario ya existe' });
     }
 
+    // Hashear contraseña
+    console.log('🔐 Hasheando contraseña...');
+    const hashedPassword = await bcryptjs.hash(password, 10);
+    console.log('✅ Contraseña hasheada');
+
+    // Crear usuario
     const newUser = {
-      email,
+      email: email.trim().toLowerCase(),
       password: hashedPassword,
       plan: plan || 'basico',
       paymentStatus: paymentStatus || 'pendiente',
@@ -48,7 +56,9 @@ export default async function handler(req, res) {
       updatedAt: new Date(),
     };
 
+    console.log('💾 Insertando usuario en MongoDB...');
     const result = await db.collection('users').insertOne(newUser);
+    console.log('✅ Usuario creado con ID:', result.insertedId);
 
     return res.status(201).json({
       success: true,
@@ -60,11 +70,16 @@ export default async function handler(req, res) {
         paymentStatus: newUser.paymentStatus,
       },
     });
+
   } catch (error) {
-    console.error('Error creando usuario:', error);
+    console.error('❌ ERROR:', error);
+    console.error('Stack:', error.stack);
+    
     return res.status(500).json({
       error: 'Error al crear usuario',
       details: error.message,
+      type: error.name,
     });
   }
 }
+
