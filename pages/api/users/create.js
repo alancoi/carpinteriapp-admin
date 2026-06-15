@@ -32,11 +32,11 @@ export default async function handler(req, res) {
     console.log('📝 Intentando crear usuario:', email);
 
     // Verificar si existe
-    const { data: exists } = await supabase
+    const { data: exists, error: checkError } = await supabase
       .from('users')
       .select('*')
       .eq('email', email.trim().toLowerCase())
-      .single();
+      .maybeSingle();
 
     if (exists) {
       return res.status(400).json({ error: 'El usuario ya existe' });
